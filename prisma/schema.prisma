@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// yo vaneko program table ho  sql ma
+
+model Program {
+  id             BigInt                 @id @default(autoincrement())
+  programName    String?
+  sourceLocation String?
+  programType    String?
+  programDesc    String?
+  keyProgrammers String?
+  keyUsers       String?
+  archive        Boolean?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  files          ProgramKeyFile[]
+  issues         IssueRelevantProgram[]
+}
+
+model File {
+  id           BigInt              @id @default(autoincrement())
+  shortName    String?
+  longName     String?
+  fileLocation String?
+  fileSize     Int?
+  docLink      String?
+  archive      Boolean?
+  programs     ProgramKeyFile[]
+  issues       IssueRelevantFile[]
+}
+
+model Issue {
+  id              BigInt                 @id @default(autoincrement())
+  issueDesc       String?
+  issueResolution String?
+  reportedBy      String?
+  dateTime        DateTime?
+  userId          String?
+  archive         Boolean?
+  programLinks    IssueRelevantProgram[]
+  fileLinks       IssueRelevantFile[]
+}
+
+model ProgramKeyFile {
+  id        Int     @id @default(autoincrement())
+  // relationship dekhako ho 
+  program   Program @relation(fields: [programId], references: [id])
+  programId BigInt
+  file      File    @relation(fields: [fileId], references: [id])
+  fileId    BigInt
+}
+
+model IssueRelevantProgram {
+  id        Int     @id @default(autoincrement())
+  issue     Issue   @relation(fields: [issueId], references: [id])
+  issueId   BigInt
+  program   Program @relation(fields: [programId], references: [id])
+  programId BigInt
+}
+
+model IssueRelevantFile {
+  id      Int    @id @default(autoincrement())
+  issue   Issue  @relation(fields: [issueId], references: [id])
+  issueId BigInt
+  file    File   @relation(fields: [fileId], references: [id])
+  fileId  BigInt
+}
