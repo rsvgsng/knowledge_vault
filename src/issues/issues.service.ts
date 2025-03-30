@@ -1,14 +1,16 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateIssueDto } from './dto/issue.dto';
 import { ResponseDTO } from 'src/auth/dto/response.dto';
 import { userType } from 'src/auth/dto/auth.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { LoggerService } from 'src/logger/logger.service';
 
 @Injectable()
 export class IssuesService {
 
     constructor(
-        private readonly prisma: PrismaService
+        private readonly prisma: PrismaService,
+        private readonly logger: LoggerService
     ) { }
 
     async createIssue(createIssue: CreateIssueDto, req: userType): Promise<ResponseDTO> {
@@ -36,6 +38,8 @@ export class IssuesService {
                 },
             })
 
+            this.logger.log(`Issue created with title ${createIssue.title}`, req.user.username)
+
             return {
                 code: 200,
                 message: "Issue created successfully",
@@ -56,7 +60,8 @@ export class IssuesService {
                         select: {
                             name: true,
                             id: true,
-                        }
+                        },
+
                     },
                     user: {
                         select: {
@@ -64,9 +69,13 @@ export class IssuesService {
                         }
                     },
                     createdAt: true,
-                    issueType: true
+                    issueType: true,
 
-                }
+                },
+                orderBy: {
+                    createdAt: "desc"
+                },
+
             })
 
             return {
@@ -200,7 +209,7 @@ export class IssuesService {
 
                 },
             })
-
+            this.logger.log(`Comment added to issue with id ${issueid}`, req.user.username)
             return {
                 code: 200,
                 message: "Comment added successfully",
@@ -211,4 +220,79 @@ export class IssuesService {
             throw error
         }
     }
+
+
+    async searchIssue(req: userType, query: string): Promise<ResponseDTO> {
+        try {
+            const trimmedQuery = query?.trim();
+            if (!trimmedQuery) {
+                throw new NotFoundException('Please provide a valid search keyword');
+            }
+
+            const issues = await this.prisma.issue.findMany({
+                where: {
+                    OR: [
+                        {
+                            title: {
+                                contains: trimmedQuery,
+                                mode: 'insensitive',
+                            },
+                        },
+                        {
+                            description: {
+                                contains: trimmedQuery,
+                                mode: 'insensitive',
+                            },
+                        },
+                        {
+                            repository: {
+                                name: {
+                                    contains: trimmedQuery,
+                                    mode: 'insensitive',
+                                },
+                            },
+                        },
+                        {
+                            user: {
+                                username: {
+                                    contains: trimmedQuery,
+                                    mode: 'insensitive',
+                                },
+                            },
+                        },
+                    ],
+                },
+                select: {
+                    repository: {
+                        select: {
+                            name: true,
+                            id: true,
+                        },
+                    },
+                    user: {
+                        select: {
+                            username: true,
+                        },
+                    },
+                    createdAt: true,
+                    issueType: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+
+            return {
+                code: 200,
+                message: issues.length ? 'Issues found successfully' : 'No matching issues found',
+                data: issues,
+            };
+        } catch (error) {
+            console.error('Search failed:', error);
+            throw new Error('An error occurred while searching for issues');
+        }
+    }
+
+
 }
+

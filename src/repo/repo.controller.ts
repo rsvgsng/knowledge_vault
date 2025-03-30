@@ -12,6 +12,15 @@ export class RepoController {
   }
 
 
+  @Get("askai/:reponame")
+  @UseGuards(AuthGuard)
+  async askAI(
+    @Param('reponame') reponame: string,
+  ) {
+    return this.repoService.askAI(reponame);
+  }
+
+
 
   @Post('create')
   @UseGuards(AuthGuard)
@@ -56,6 +65,28 @@ export class RepoController {
 
 
 
+
+  @Get("search/:reponame")
+  @UseGuards(AuthGuard)
+  async searchFile(
+    @Req() req: userType,
+    @Param('reponame') reponame: string,
+  ) {
+    return this.repoService.searchRepo(req, reponame);
+  }
+
+
+
+
+  @Post("adddocumentation/:repoid")
+  @UseGuards(AuthGuard)
+  async addDocumentation(
+    @Req() req: userType,
+    @Param('repoid') repoid: string,
+    @Body("documentation") documentation: string,
+  ) {
+    return this.repoService.addDocumentation(req, repoid, documentation);
+  }
 
 
 }

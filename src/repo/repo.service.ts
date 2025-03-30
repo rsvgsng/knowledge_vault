@@ -5,11 +5,13 @@ import { userType } from 'src/auth/dto/auth.dto';
 import { ResponseDTO } from 'src/auth/dto/response.dto';
 import * as fs from 'fs'
 import * as path from 'path'
+import { LoggerService } from 'src/logger/logger.service';
 
 @Injectable()
 export class RepoService {
     constructor(
-        private readonly prismaService: PrismaService
+        private readonly prismaService: PrismaService,
+        private readonly logger: LoggerService
     ) { }
     async createRepo(repo: createRepoDTO, req: userType): Promise<ResponseDTO> {
         const user = req.user.username
@@ -72,7 +74,7 @@ export class RepoService {
             }
         })
 
-
+        this.logger.log(`Repo created with name ${reponame}`, user)
 
         return {
             code: 200,
@@ -133,6 +135,7 @@ export class RepoService {
                 select: {
                     files: {},
                     issue: true,
+                    documentation: true,
                     name: true,
                     description: true,
                     id: true,
@@ -235,6 +238,8 @@ export class RepoService {
                     updatedAt: new Date(),
                 }
             })
+
+            this.logger.log(`File added with name ${finalFilename}`, req.user.username)
             return {
                 code: 200,
                 message: 'File added successfully',
@@ -243,6 +248,178 @@ export class RepoService {
 
         } catch (error) {
             throw error
+        }
+    }
+
+
+    async searchRepo(req: userType, reponame: string): Promise<ResponseDTO> {
+        try {
+            if (!reponame) {
+                throw new NotFoundException('Please provide a repo name');
+            }
+
+            const repos = await this.prismaService.repository.findMany({
+                where: {
+                    name: {
+                        contains: reponame,
+                        mode: 'insensitive'
+                    }
+                }
+            });
+
+            return {
+                code: 200,
+                message: repos.length ? 'Repositories found successfully' : 'No matching repositories found',
+                data: repos
+            };
+        } catch (error) {
+            return {
+                code: 500,
+                message: error.message || 'Internal Server Error',
+                data: null
+            };
+        }
+    }
+
+
+
+    async addDocumentation(
+        req: userType,
+        repoid: string,
+        documentation: string
+    ): Promise<ResponseDTO> {
+
+
+        try {
+
+            if (!repoid) throw new NotFoundException('Please provide repo name')
+            let check = await this.prismaService.repository.findUnique({
+                where: {
+                    name: repoid
+                }
+            })
+
+            if (!check) throw new NotFoundException('No repo found')
+
+            if (!documentation) throw new NotFoundException('Please provide documentation')
+
+
+            await this.prismaService.repository.update({
+                where: {
+                    name: repoid
+                },
+                data: {
+                    documentation: documentation,
+                    updatedAt: new Date()
+                }
+            })
+
+
+
+            this.logger.log(`Documentation added to repo ${repoid}`, req.user.username)
+
+            return {
+                code: 200,
+                message: 'Documentation added successfully',
+                data: null
+            }
+
+
+        } catch (error) {
+            throw error
+
+        }
+    }
+
+
+
+
+    async askAI(reponame: string) {
+        try {
+            const repo = await this.prismaService.repository.findUnique({
+                where: {
+                    name: reponame
+                },
+                select: {
+                    files: true,
+                    description: true,
+                    documentation: true,
+                    name: true,
+                }
+            });
+
+            if (!repo) throw new NotFoundException('No repo found');
+
+            const filesArr = repo.files.map(file => ({
+                title: file.name,
+                type: file.type,
+                description: file.description,
+            }));
+
+            const prompt = `
+            You are an expert AI assistant. A developer who has never seen this project before is trying to understand the code repository below.
+            
+            Your job is to help them **clearly and simply** understand what the project is, what it does, and how to get started using it.
+            
+            ---
+            
+            🗂️ Repository Name: ${repo.name}
+            
+            📝 Description:
+            ${repo.description || 'No description provided.'}
+            
+            📚 Documentation (Markdown):
+            ${repo.documentation || 'No documentation provided.'}
+            
+            📁 Files:
+            ${filesArr.map((f, i) => `  ${i + 1}. ${f.title} (${f.type}) - ${f.description || 'No description'}`).join('\n')}
+            
+            ---
+            
+            👨‍💻 What you should do:
+            
+            1. **Explain what this repository is, in simple terms.**
+            2. **Describe the main purpose of this project.**
+            3. **Guide a beginner on how to start using this repo — step-by-step.**
+            4. **Point out anything confusing or missing, especially in the documentation.**
+            5. **If possible, suggest improvements to help first-time users.**
+            
+            Keep it concise, beginner-friendly, and welcoming to someone unfamiliar with the repo or codebase.
+            `;
+
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAzY7jd-yLCxmoIGcJJoTsbdAsSacWkXTw`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [{ text: prompt }]
+                        }
+                    ]
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(result);
+                throw new Error(result.error?.message || 'Failed to generate response from Gemini');
+            }
+
+            const reply = result.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+            console.log("AI Response:\n", reply);
+
+            return {
+                code: 200,
+                message: 'AI response generated successfully',
+                data: reply
+            }
+        } catch (error) {
+            console.error("askAI error:", error);
+            throw error;
         }
     }
 

@@ -58,4 +58,15 @@ export class IssuesController {
     return this.issuesService.addComment(req, issueid, body.comment);
   }
 
+
+
+
+  @Get("search/:issuename")
+  @UseGuards(AuthGuard)
+  async searchIssue(
+    @Req() req: userType,
+    @Param('issuename') issuename: string,
+  ) {
+    return this.issuesService.searchIssue(req, issuename);
+  }
 }

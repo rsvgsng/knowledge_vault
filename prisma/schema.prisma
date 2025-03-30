@@ -25,19 +25,21 @@ model User {
   logs       logs[]
   issue      issue[]
   comment    comment[]
+  Logs       Logs[]
 }
 
 model Repository {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  language    String
-  files       Files[]
-  user        User     @relation(fields: [userId], references: [id])
-  issue       issue[]
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userId        String
+  documentation String?
+  language      String
+  files         Files[]
+  user          User     @relation(fields: [userId], references: [id])
+  issue         issue[]
 }
 
 model Files {
@@ -84,6 +86,14 @@ model comment {
   issueId     String
   user        User     @relation(fields: [userId], references: [id])
   issue       issue    @relation(fields: [issueId], references: [id])
+}
+
+model Logs {
+  id          String   @id @default(cuid())
+  description String?
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
 }
 
 enum issueType {
