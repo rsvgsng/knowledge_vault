@@ -13,68 +13,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// yo vaneko program table ho  sql ma
-
-model Program {
-  id             BigInt                 @id @default(autoincrement())
-  programName    String?
-  sourceLocation String?
-  programType    String?
-  programDesc    String?
-  keyProgrammers String?
-  keyUsers       String?
-  archive        Boolean?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  files          ProgramKeyFile[]
-  issues         IssueRelevantProgram[]
+model User {
+  id         String       @id @default(cuid())
+  name       String?
+  username   String?      @unique
+  email      String?      @unique
+  password   String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  Repository Repository[]
+  logs       logs[]
+  issue      issue[]
+  comment    comment[]
 }
 
-model File {
-  id           BigInt              @id @default(autoincrement())
-  shortName    String?
-  longName     String?
-  fileLocation String?
-  fileSize     Int?
-  docLink      String?
-  archive      Boolean?
-  programs     ProgramKeyFile[]
-  issues       IssueRelevantFile[]
+model Repository {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  language    String
+  files       Files[]
+  user        User     @relation(fields: [userId], references: [id])
+  issue       issue[]
 }
 
-model Issue {
-  id              BigInt                 @id @default(autoincrement())
-  issueDesc       String?
-  issueResolution String?
-  reportedBy      String?
-  dateTime        DateTime?
-  userId          String?
-  archive         Boolean?
-  programLinks    IssueRelevantProgram[]
-  fileLinks       IssueRelevantFile[]
+model Files {
+  Repository   Repository? @relation(fields: [repositoryId], references: [id])
+  repositoryId String?
+  name         String
+  path         String
+  size         Int
+  description  String?
+  type         String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  id           String      @id @default(cuid())
 }
 
-model ProgramKeyFile {
-  id        Int     @id @default(autoincrement())
-  // relationship dekhako ho 
-  program   Program @relation(fields: [programId], references: [id])
-  programId BigInt
-  file      File    @relation(fields: [fileId], references: [id])
-  fileId    BigInt
+model logs {
+  id          String   @id @default(cuid())
+  description String?
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
 }
 
-model IssueRelevantProgram {
-  id        Int     @id @default(autoincrement())
-  issue     Issue   @relation(fields: [issueId], references: [id])
-  issueId   BigInt
-  program   Program @relation(fields: [programId], references: [id])
-  programId BigInt
+model issue {
+  id           String     @id @default(cuid())
+  repositoryId String
+  title        String
+  description  String?
+  status       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  issueType    issueType
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  repository   Repository @relation(fields: [repositoryId], references: [id])
+  comment      comment[]
 }
 
-model IssueRelevantFile {
-  id      Int    @id @default(autoincrement())
-  issue   Issue  @relation(fields: [issueId], references: [id])
-  issueId BigInt
-  file    File   @relation(fields: [fileId], references: [id])
-  fileId  BigInt
+model comment {
+  id          String   @id @default(cuid())
+  description String?
+  createdAt   DateTime @default(now())
+  userId      String
+  issueId     String
+  user        User     @relation(fields: [userId], references: [id])
+  issue       issue    @relation(fields: [issueId], references: [id])
+}
+
+enum issueType {
+  BUG
+  FEATURE
+  ENHANCEMENT
+  TASK
+  IMPROVEMENT
 }
