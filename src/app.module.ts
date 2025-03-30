@@ -10,7 +10,6 @@ import { LoggerModule } from './logger/logger.module';
 
 @Module({
   imports: [AuthModule, RepoModule, LoggerModule,
-
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'uploads'),
       serveRoot: '/uploads',
